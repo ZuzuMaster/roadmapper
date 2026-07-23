@@ -16,6 +16,10 @@ def index():
     """Shows homepage"""
     return render_template("index.html")
 
+@app.route("/about")
+def about():
+     return render_template("about.html")
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """Register user"""
@@ -25,3 +29,10 @@ def register():
     elif request.method == "POST":
         # registers user
         return redirect("/")
+
+# USE THIS FOR PAGES THAT REQUIRE A LOGGED IN ACCOUNT
+
+#     if session.get("user_id") is None:
+#            return redirect("/login")
+#     else:
+#            *the rest of your code*
