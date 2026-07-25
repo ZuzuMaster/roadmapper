@@ -37,11 +37,9 @@ def register():
                 db.execute("INSERT INTO users (username, hash) VALUES(?, ?)", username, hashed)
                 return redirect("/")
             else:
-                flash("Password and confirmation are different")
-                return redirect("/")
+                return render_template("apology.html", message="password and confirmation are different")
         except ValueError:
-            flash("Username already exists")
-            return redirect("/")
+            return render_template("apology.html", message="username already exists")
 
 # USE THIS FOR PAGES THAT REQUIRE A LOGGED IN ACCOUNT
 
