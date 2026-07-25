@@ -5,5 +5,16 @@
 {% endblock %}
 
 {% block body %}
-    unfinished
+    <style>
+    input::placeholder {
+        color: rgb(185, 174, 174);
+    }
+    </style>
+
+    <form action="/register" method="post" style="display: flex; flex-direction: column; gap: 7px; max-width: 400px;">
+        <input autocomplete="off" autofocus name="username" placeholder="Username" type="text" style="font-size: 1.2rem; padding: 12px; background-color: rgb(128, 116, 97); color: rgb(248, 233, 233);">
+        <input name="password" placeholder="Password" type="password" style="font-size: 1.2rem; padding: 12px; background-color: rgb(128, 116, 97); color: rgb(248, 233, 233);">
+        <input name="confirmation" placeholder="Confirm Password" type="password" style="font-size: 1.2rem; padding: 12px; background-color: rgb(128, 116, 97); color: rgb(248, 233, 233);">
+        <button type="submit" style="font-size: 1.05rem; padding: 12px;">Register</button>
+    </form>
 {% endblock %}
