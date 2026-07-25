@@ -14,11 +14,43 @@ db = SQL("sqlite:///roadmap.db")
 @app.route("/")
 def index():
     """Shows homepage"""
-    return render_template("index.html")
+    if session.get("user_id") is None:
+        return redirect("/login")
+    else:
+        return render_template("index.html")
 
 @app.route("/about")
 def about():
+     """Shows an about page for the website"""
      return render_template("about.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Log user in"""
+    session.clear()
+
+    if request.method == "POST":
+        rows = db.execute(
+            "SELECT * FROM users WHERE username = ?", request.form.get("username")
+        )
+
+        if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
+            return render_template("error.html", message="invalid username and/or password")
+
+        session["user_id"] = rows[0]["id"]
+        return redirect("/")
+
+    else:
+        return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    """Log user out"""
+    if session.get("user_id") is None:
+        return redirect("/login")
+    else:
+        session.clear()
+        return redirect("/")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -37,9 +69,9 @@ def register():
                 db.execute("INSERT INTO users (username, hash) VALUES(?, ?)", username, hashed)
                 return redirect("/")
             else:
-                return render_template("apology.html", message="password and confirmation are different")
+                return render_template("error.html", message="password and confirmation are different")
         except ValueError:
-            return render_template("apology.html", message="username already exists")
+            return render_template("error.html", message="username already exists")
 
 # USE THIS FOR PAGES THAT REQUIRE A LOGGED IN ACCOUNT
 

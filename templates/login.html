@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Roadmapper - Register
+    Roadmapper - Login
 {% endblock %}
 
 {% block body %}
@@ -10,17 +10,16 @@
         color: rgb(185, 174, 174);
     }
     </style>
-
+    
     <div style="display: flex; flex-direction: column; gap: 60px; max-width: 400px;">
-        <b style="text-decoration:underline;font-size: 30px;">Register</b>
-        
-        <form action="/register" method="post" style="display: flex; flex-direction: column; gap: 7px; max-width: 400px;">
+        <b style="text-decoration:underline;font-size: 30px;">Login</b>
+
+        <form action="/login" method="post" style="display: flex; flex-direction: column; gap: 7px; max-width: 400px;">
             <input autocomplete="off" autofocus name="username" placeholder="Username" type="text" style="font-size: 1.2rem; padding: 12px; background-color: rgb(128, 116, 97); color: rgb(248, 233, 233);">
             <input name="password" placeholder="Password" type="password" style="font-size: 1.2rem; padding: 12px; background-color: rgb(128, 116, 97); color: rgb(248, 233, 233);">
-            <input name="confirmation" placeholder="Confirm Password" type="password" style="font-size: 1.2rem; padding: 12px; background-color: rgb(128, 116, 97); color: rgb(248, 233, 233);">
-            <button type="submit" style="font-size: 1.05rem; padding: 12px;">Register</button>
+            <button type="submit" style="font-size: 1.05rem; padding: 12px;">Login</button>
         </form>
-
-        <p style="font-size: 13px;">if you have an account, please login <a href="/login">here</a></p>
+        
+        <p style="font-size: 13px;">if you don't have an account, please register <a href="/register">here</a></p>
     </div>
 {% endblock %}
