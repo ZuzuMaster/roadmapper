@@ -24,27 +24,39 @@ def index():
 
 @app.route("/about")
 def about():
-     """Shows an about page for the website"""
-     return render_template("about.html")
+    """Shows an about page for the website"""
+    if session.get("user_id") is None:
+        return render_template("about.html")
+    else:
+        rows = db.execute(
+            "SELECT * FROM users WHERE id = ?", session["user_id"]
+        )
+        return render_template("about.html", username=rows[0]["username"], logged_in=True)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     """Log user in"""
-    session.clear()
+    if session.get("user_id") is None:
+        session.clear()
 
-    if request.method == "POST":
-        rows = db.execute(
-            "SELECT * FROM users WHERE username = ?", request.form.get("username")
-        )
+        if request.method == "POST":
+            rows = db.execute(
+                "SELECT * FROM users WHERE username = ?", request.form.get("username")
+            )
 
-        if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
-            return render_template("error.html", message="invalid username and/or password")
+            if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
+                return render_template("error.html", message="invalid username and/or password")
 
-        session["user_id"] = rows[0]["id"]
-        return redirect("/")
+            session["user_id"] = rows[0]["id"]
+            return redirect("/")
 
+        elif request.method == "GET":
+            return render_template("login.html")
     else:
-        return render_template("login.html")
+        rows = db.execute(
+            "SELECT * FROM users WHERE id = ?", session["user_id"]
+        )
+        return render_template("error.html", message="you cannot login while already being logged in", username=rows[0]["username"], logged_in=True)
 
 @app.route("/logout")
 def logout():
@@ -59,8 +71,13 @@ def logout():
 def register():
     """Register user"""
     if request.method == "GET":
-        # shows registering page
-        return render_template("register.html")
+        if session.get("user_id") is None:
+            return render_template("register.html")
+        else:
+            rows = db.execute(
+                "SELECT * FROM users WHERE id = ?", session["user_id"]
+            )
+            return render_template("register.html", username=rows[0]["username"], logged_in=True)
     elif request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -72,13 +89,18 @@ def register():
                 db.execute("INSERT INTO users (username, hash) VALUES(?, ?)", username, hashed)
                 return redirect("/")
             else:
-                return render_template("error.html", message="password and confirmation are different")
+                if session.get("user_id") is None:
+                    return render_template("error.html", message="password and confirmation are different")
+                else:
+                    rows = db.execute(
+                        "SELECT * FROM users WHERE id = ?", session["user_id"]
+                    )
+                    return render_template("error.html", message="password and confirmation are different", username=rows[0]["username"], logged_in=True)
         except ValueError:
-            return render_template("error.html", message="username already exists")
-
-# USE THIS FOR PAGES THAT REQUIRE A LOGGED IN ACCOUNT
-
-#     if session.get("user_id") is None:
-#            return redirect("/login")
-#     else:
-#            *the rest of your code*
+            if session.get("user_id") is None:
+                return render_template("error.html", message="username already exists")
+            else:
+                rows = db.execute(
+                    "SELECT * FROM users WHERE id = ?", session["user_id"]
+                )
+                return render_template("error.html", message="username already exists", username=rows[0]["username"], logged_in=True)
