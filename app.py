@@ -17,7 +17,10 @@ def index():
     if session.get("user_id") is None:
         return redirect("/login")
     else:
-        return render_template("index.html")
+        rows = db.execute(
+            "SELECT * FROM users WHERE id = ?", session["user_id"]
+        )
+        return render_template("index.html", username=rows[0]["username"], logged_in=True)
 
 @app.route("/about")
 def about():
@@ -47,7 +50,7 @@ def login():
 def logout():
     """Log user out"""
     if session.get("user_id") is None:
-        return redirect("/login")
+        return render_template("error.html", message="you cannot logout without logging in first")
     else:
         session.clear()
         return redirect("/")

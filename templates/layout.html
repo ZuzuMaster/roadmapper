@@ -9,20 +9,26 @@
     </head>
     <body>
         <div class="container">
-            <div class="item">
+            <div class="item" style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <img src="/static/roadicon.png" alt="Road Icon" style="width:35px; height:35px;">
                     <a href="/" style="color:inherit;text-decoration:none;font-weight:bold;">Roadmapper</a>
+                    <span style="font-size: 15px; padding: 10px;">{{ username }}</span>
                 </div>
-                <a href="/about" style="font-size:large;text-decoration:none;font-weight:bolder;">&#9432;</a>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    {% if logged_in %}
+                        <a href="/logout" style="font-size:medium;padding:10px;"">logout</a>
+                    {% endif %}
+                </div>
             </div>
             <div class="item">
                 <div style="border-width:1px;border-color:rgb(128, 116, 97);border-style:solid;padding:3px;">
                     <b>Navigation</b>
                 </div>
                 <ul>
-                    <li><a href="/register">Register</a></li>
-                    <li><a href="/login">Login</a></li>
+                    <li style="width: 160px;"><a href="/register">Register</a></li>
+                    <li style="width: 160px;"><a href="/login">Login</a></li>
+                    <li style="width: 160px;"><a href="/about">About</a></li>
                 </ul>
             </div>
             <div class="item">{% block body %}{% endblock %}</div>
