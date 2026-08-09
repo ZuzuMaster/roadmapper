@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Roadmapper - Home
+{% endblock %}
+
+{% block body %}
+    <style>
+        :root {
+            --roadmap-bg: {{ roadmap_color }};
+        }
+    </style>
+
+    <div style="display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; text-align: left; margin: 0; padding: 1rem;">
+        <h1 style="margin: 0; font-size: 2rem;">
+            {{ roadmap_name | default('Untitled', true) }}
+        </h1>
+        <p style="margin-top: 0.5rem;">unfinished</p>
+    </div>
+{% endblock %}

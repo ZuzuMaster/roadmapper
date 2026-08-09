@@ -3,7 +3,8 @@
 }
 
 body {
-    background-color: rgb(243, 230, 210);
+    /* Fallback color if --roadmap-bg is not set */
+    background-color: var(--roadmap-bg, rgb(243, 230, 210)); 
     margin: 0;
     min-height: 100vh; 
     width: 100%; 
@@ -13,9 +14,11 @@ body {
 .container {
     flex: 1;
     display: grid;
-    grid-template-columns: 1.1fr 4fr;
+    grid-template-columns: .5fr 4fr;
     grid-template-rows: 80px 5fr; 
-    grid-template-areas: 'header header header header header' 'navbar stuff stuff stuff stuff';
+    grid-template-areas: 
+        'header header header header header' 
+        'navbar stuff stuff stuff stuff';
 }
 
 .item {
@@ -66,15 +69,15 @@ li {
 }
 
 li a {
-  display: block;
-  color: black;
-  padding: 8px 16px;
-  text-decoration: none;
+    display: block;
+    color: black;
+    padding: 8px 16px;
+    text-decoration: none;
 }
 
 li a:hover {
-  background-color: #555555;
-  color: white;
+    background-color: #555555;
+    color: white;
 }
 
 .item:nth-child(3) {
