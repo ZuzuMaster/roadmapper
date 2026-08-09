@@ -3,7 +3,6 @@
 }
 
 body {
-    /* Fallback color if --roadmap-bg is not set */
     background-color: var(--roadmap-bg, rgb(243, 230, 210)); 
     margin: 0;
     min-height: 100vh; 
