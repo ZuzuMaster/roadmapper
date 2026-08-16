@@ -125,7 +125,10 @@ def create():
         rows = db.execute(
             "SELECT * FROM users WHERE id = ?", session["user_id"]
         )
-        return render_template("roadmap_view.html", roadmap_name=roadmap_name, roadmap_color=roadmap_color, username=rows[0]["username"], logged_in=True) # This will change to hand over nodes once rendering is added.
+        roadmap = db.execute(
+            "SELECT * FROM roadmaps WHERE id = ?", roadmap_id
+        )
+        return render_template("roadmap_view.html", roadmap_name=roadmap_name, roadmap_color=roadmap_color, username=rows[0]["username"], logged_in=True, roadmap=roadmap) # This will change to hand over nodes once rendering is added.
 
 
 @app.route("/view")
@@ -135,9 +138,56 @@ def view():
         return render_template("error.html", message="must be logged in first")
     else:
         roadmap_id = request.args.get('id')
-        roadmap_name = db.execute("SELECT name FROM roadmaps WHERE id = ?", roadmap_id)[0]["name"]
-        roadmap_color = db.execute("SELECT color FROM roadmaps WHERE id = ?", roadmap_id)[0]["color"]
-        rows = db.execute(
-            "SELECT * FROM users WHERE id = ?", session["user_id"]
+        if not roadmap_id:
+            return render_template("error.html", message="missing roadmap ID")
+
+        # Fetch the specific roadmap belonging to the logged-in user
+        roadmaps = db.execute(
+            "SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", 
+            roadmap_id, session["user_id"]
         )
-        return render_template("roadmap_view.html", roadmap_name=roadmap_name, roadmap_color=roadmap_color, username=rows[0]["username"], logged_in=True) # This will change to hand over nodes once rendering is added.
+
+        if not roadmaps:
+            return render_template("error.html", message="roadmap not found")
+        else:
+            roadmap = roadmaps[0]
+            user = db.execute("SELECT username FROM users WHERE id = ?", session["user_id"])[0]
+            return render_template("roadmap_view.html", roadmap_name=roadmap["name"], roadmap_color=roadmap["color"], username=user["username"], logged_in=True, roadmap=roadmap) # This will change to hand over nodes once rendering is added.
+
+@app.route("/customize", methods=["GET", "POST"])
+def customize():
+    """Changes name of roadmap"""
+    if request.method == "GET":
+        if session.get("user_id") is None:
+            return render_template("error.html", message="must be logged in first")
+        else:
+            roadmap_id = request.args.get('id')
+            rows = db.execute(
+                "SELECT * FROM users WHERE id = ?", session["user_id"]
+            )
+            roadmap = db.execute(
+                "SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", 
+                roadmap_id, session["user_id"]
+            )[0]
+            return render_template("customize.html", username=rows[0]["username"], logged_in=True, roadmap=roadmap)
+    elif request.method == "POST":
+        if session.get("user_id") is None:
+            return render_template("error.html", message="must be logged in first")
+        else:
+            name = request.form.get("name")
+            color = request.form.get("color")
+            if color not in ["black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue", "teal", "aqua"]:
+                return render_template("error.html", message="invalid color")
+            else:
+                roadmap_id = request.args.get('id')
+                db.execute("UPDATE roadmaps SET name = ?, color = ? WHERE id = ?", name, color, roadmap_id)
+                return redirect(f"/view?id={roadmap_id}")
+        
+@app.route("/delete")
+def delete():
+    """Deletes chosen roadmap"""
+    if session.get("user_id") is None:
+        return render_template("error.html", message="must be logged in first")
+    else:
+        db.execute("DELETE FROM roadmaps WHERE id = ?", request.args.get('id'))
+        return redirect("/")

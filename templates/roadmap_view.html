@@ -11,10 +11,12 @@
         }
     </style>
 
-    <div style="display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; text-align: left; margin: 0; padding: 1rem;">
-        <h1 style="margin: 0; font-size: 2rem;">
+    <div style="position: absolute; margin: 0; top: 0; left: 0;">
+        <h1 style="font-size: 40px; margin: 0; padding: 5px;">
             {{ roadmap_name | default('Untitled', true) }}
         </h1>
-        <p style="margin-top: 0.5rem;">unfinished</p>
+    </div>
+    <div style="position: absolute; margin: 0; top: 0; right: 0; padding: 5px;">
+        <a style="color: black; padding: 8px 16px; text-decoration: none;" href="{{ url_for('customize', id=roadmap.id) }}">&#9998;</a>
     </div>
 {% endblock %}

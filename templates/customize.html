@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Roadmapper - Register
+{% endblock %}
+
+{% block body %}
+    <style>
+    input::placeholder {
+        color: rgb(185, 174, 174);
+    }
+    </style>
+
+    <div style="display: flex; flex-direction: column; gap: 60px; max-width: 400px;">
+        <b style="text-decoration:underline;font-size: 30px;">Customize</b>
+        
+        <form action="{{ url_for('customize', id=roadmap.id) }}" method="post" style="display: flex; flex-direction: column; gap: 7px; max-width: 400px;">
+            <input autocomplete="off" autofocus name="name" placeholder="New Name" type="text" style="font-size: 1.2rem; padding: 12px; background-color: rgb(128, 116, 97); color: rgb(248, 233, 233);">
+            <input autocomplete="off" name="color" placeholder="New Color" style="font-size: 1.2rem; padding: 12px; background-color: rgb(128, 116, 97); color: rgb(248, 233, 233);">
+            <button type="submit" style="font-size: 1.05rem; padding: 12px;">Submit</button>
+        </form>
+    </div>
+{% endblock %}

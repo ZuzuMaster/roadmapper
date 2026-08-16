@@ -5,10 +5,13 @@
 {% endblock %}
 
 {% block body %}
-    <h1>Roadmaps: </h1>
-    <ul>
+    <h1>Roadmaps:</h1>
+    <ul style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; list-style: none; padding: 0; margin: 0;">
         {% for roadmap in roadmaps %}
-            <li><a href="{{ url_for('view', id=roadmap.id) }}">{{ roadmap_name | default('Untitled', true) }}</a></li>
+            <li style="border: 1px solid rgb(128, 116, 97); padding: 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <a href="{{ url_for('view', id=roadmap.id) }}">{{ roadmap.name | default('Untitled', true) }}</a>
+                <a href="{{ url_for('delete', id=roadmap.id) }}" style="text-decoration: none;">&#128465;</a>
+            </li>
         {% endfor %}
     </ul>
 {% endblock %}
