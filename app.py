@@ -165,11 +165,12 @@ def customize():
             rows = db.execute(
                 "SELECT * FROM users WHERE id = ?", session["user_id"]
             )
-            roadmap = db.execute(
-                "SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", 
-                roadmap_id, session["user_id"]
-            )[0]
-            return render_template("customize.html", username=rows[0]["username"], logged_in=True, roadmap=roadmap)
+            rows = db.execute("SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", roadmap_id, session["user_id"])
+            if not rows:
+                return render_template("error.html", message="roadmap not found")
+            else:
+                roadmap = rows[0]
+                return render_template("customize.html", username=rows[0]["username"], logged_in=True, roadmap=roadmap)
     elif request.method == "POST":
         if session.get("user_id") is None:
             return render_template("error.html", message="must be logged in first")
@@ -180,7 +181,7 @@ def customize():
                 return render_template("error.html", message="invalid color")
             else:
                 roadmap_id = request.args.get('id')
-                db.execute("UPDATE roadmaps SET name = ?, color = ? WHERE id = ?", name, color, roadmap_id)
+                db.execute("UPDATE roadmaps SET name = ?, color = ? WHERE id = ? AND user_id = ?", name, color, roadmap_id, session["user_id"])
                 return redirect(f"/view?id={roadmap_id}")
         
 @app.route("/delete")
@@ -189,5 +190,5 @@ def delete():
     if session.get("user_id") is None:
         return render_template("error.html", message="must be logged in first")
     else:
-        db.execute("DELETE FROM roadmaps WHERE id = ?", request.args.get('id'))
+        db.execute("DELETE FROM roadmaps WHERE id = ? AND user_id = ?", request.args.get('id'), session["user_id"])
         return redirect("/")
