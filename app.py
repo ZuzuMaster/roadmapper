@@ -119,16 +119,38 @@ def create():
         return render_template("error.html", message="must be logged in first")
     else:
         db.execute("INSERT INTO roadmaps (user_id, color) VALUES (?, ?)", session["user_id"], "white")
-        roadmap_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
-        roadmap_name = db.execute("SELECT name FROM roadmaps WHERE id = ?", roadmap_id)[0]["name"]
-        roadmap_color = db.execute("SELECT color FROM roadmaps WHERE id = ?", roadmap_id)[0]["color"]
-        rows = db.execute(
-            "SELECT * FROM users WHERE id = ?", session["user_id"]
+        return redirect("/")
+
+@app.route("/create_node")
+def create_node():
+    """Creates an unnamed and autoconnected node"""
+    if session.get("user_id") is None:
+        return render_template("error.html", message="must be logged in first")
+    
+    roadmap_id = request.args.get('id')
+    if not roadmap_id:
+        return render_template("error.html", message="missing roadmap ID")
+    
+    last_node = db.execute(
+        "SELECT id FROM nodes WHERE map_id = ? AND next IS NULL", 
+        roadmap_id
+    )
+    if not last_node:
+        db.execute(
+            "INSERT INTO nodes (map_id, next, previous, title, color) VALUES (?, NULL, NULL, ?, ?)",
+            roadmap_id, "Untitled", "white"
         )
-        roadmap = db.execute(
-            "SELECT * FROM roadmaps WHERE id = ?", roadmap_id
+    else:
+        last_node_id = last_node[0]["id"]
+        new_node_id = db.execute(
+            "INSERT INTO nodes (map_id, next, previous, title, color) VALUES (?, NULL, ?, ?, ?)",
+            roadmap_id, last_node_id, "Untitled", "white"
         )
-        return render_template("roadmap_view.html", roadmap_name=roadmap_name, roadmap_color=roadmap_color, username=rows[0]["username"], logged_in=True, roadmap=roadmap) # This will change to hand over nodes once rendering is added.
+        db.execute(
+            "UPDATE nodes SET next = ? WHERE id = ?",
+            new_node_id, last_node_id
+        )
+    return redirect(f"/view?id={roadmap_id}")
 
 
 @app.route("/view")
@@ -136,23 +158,39 @@ def view():
     """Opens roadmap for viewing"""
     if session.get("user_id") is None:
         return render_template("error.html", message="must be logged in first")
-    else:
-        roadmap_id = request.args.get('id')
-        if not roadmap_id:
-            return render_template("error.html", message="missing roadmap ID")
+    
+    roadmap_id = request.args.get('id')
+    if not roadmap_id:
+        return render_template("error.html", message="missing roadmap ID")
+    roadmaps = db.execute(
+        "SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", 
+        roadmap_id, session["user_id"]
+    )
+    if not roadmaps:
+        return render_template("error.html", message="roadmap not found")
+    roadmap = roadmaps[0]
+    user = db.execute("SELECT username FROM users WHERE id = ?", session["user_id"])[0]
+    all_nodes = db.execute("SELECT * FROM nodes WHERE map_id = ?", roadmap_id)
+    nodes_by_id = {}
+    for node in all_nodes:
+        nodes_by_id[node["id"]] = node
 
-        # Fetch the specific roadmap belonging to the logged-in user
-        roadmaps = db.execute(
-            "SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", 
-            roadmap_id, session["user_id"]
-        )
+    current_node = None
+    for node in all_nodes:
+        if node["previous"] is None:
+            current_node = node
+            break
 
-        if not roadmaps:
-            return render_template("error.html", message="roadmap not found")
+    ordered_nodes = []
+    while current_node is not None:
+        ordered_nodes.append(current_node)
+        next_id = current_node["next"]
+        if next_id is not None and next_id in nodes_by_id:
+            current_node = nodes_by_id[next_id]
         else:
-            roadmap = roadmaps[0]
-            user = db.execute("SELECT username FROM users WHERE id = ?", session["user_id"])[0]
-            return render_template("roadmap_view.html", roadmap_name=roadmap["name"], roadmap_color=roadmap["color"], username=user["username"], logged_in=True, roadmap=roadmap) # This will change to hand over nodes once rendering is added.
+            current_node = None
+
+    return render_template("roadmap_view.html", roadmap_name=roadmap["name"], roadmap_color=roadmap["color"], username=user["username"], logged_in=True, roadmap=roadmap,nodes=ordered_nodes)
 
 @app.route("/customize", methods=["GET", "POST"])
 def customize():
