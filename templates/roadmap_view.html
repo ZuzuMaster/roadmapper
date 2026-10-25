@@ -21,6 +21,11 @@
                 <h3 style="margin: 0 0 5px 0; font-size: 16px;">{{ node.title }}</h3>
                 <a href="{{ url_for('delete_node', id=node.id) }}" style="text-decoration: none;">&#128465;</a>
                 {% if node.desc %}  
+            <div style="background-color: '{{ node.color | default('white', true) }}'; border: 1px solid #ccc; border-radius: 6px; padding: 12px; min-width: 150px; text-align: center;">
+                <h3 style="margin: 0 0 5px 0; font-size: 16px;">
+                    {{ node.title | default('Untitled', true) }}
+                </h3>
+                {% if node.desc %}
                     <p style="margin: 0 0 5px 0; font-size: 13px;">{{ node.desc }}</p>
                 {% endif %}
                 {% if node.link %}
