@@ -4,6 +4,8 @@ from cs50 import SQL
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
+if __name__ == "__main__":
+    app.run(debug=True)
 
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
@@ -118,7 +120,7 @@ def create():
     if session.get("user_id") is None:
         return render_template("error.html", message="must be logged in first")
     else:
-        db.execute("INSERT INTO roadmaps (user_id, color) VALUES (?, ?)", session["user_id"], "white")
+        db.execute("INSERT INTO roadmaps (user_id) VALUES (?)", session["user_id"])
         return redirect("/")
 
 @app.route("/create_node")
@@ -138,13 +140,13 @@ def create_node():
     if not last_node:
         db.execute(
             "INSERT INTO nodes (map_id, next, previous, title, color) VALUES (?, NULL, NULL, ?, ?)",
-            roadmap_id, "Untitled", "white"
+            roadmap_id, None, "white"
         )
     else:
         last_node_id = last_node[0]["id"]
         new_node_id = db.execute(
             "INSERT INTO nodes (map_id, next, previous, title, color) VALUES (?, NULL, ?, ?, ?)",
-            roadmap_id, last_node_id, "Untitled", "white"
+            roadmap_id, last_node_id, None, "white"
         )
         db.execute(
             "UPDATE nodes SET next = ? WHERE id = ?",
@@ -155,10 +157,9 @@ def create_node():
 
 @app.route("/view")
 def view():
-    """Opens roadmap for viewing"""
+    """Opens roadmap for viewing and renders nodes using a linked-list style system"""
     if session.get("user_id") is None:
         return render_template("error.html", message="must be logged in first")
-    
     roadmap_id = request.args.get('id')
     if not roadmap_id:
         return render_template("error.html", message="missing roadmap ID")
@@ -190,7 +191,7 @@ def view():
         else:
             current_node = None
 
-    return render_template("roadmap_view.html", roadmap_name=roadmap["name"], roadmap_color=roadmap["color"], username=user["username"], logged_in=True, roadmap=roadmap,nodes=ordered_nodes)
+    return render_template("roadmap_view.html", roadmap_name=roadmap["name"], username=user["username"], logged_in=True, roadmap=roadmap,nodes=ordered_nodes)
 
 @app.route("/customize", methods=["GET", "POST"])
 def customize():
@@ -200,33 +201,58 @@ def customize():
             return render_template("error.html", message="must be logged in first")
         else:
             roadmap_id = request.args.get('id')
-            rows = db.execute(
+            rows_user = db.execute(
                 "SELECT * FROM users WHERE id = ?", session["user_id"]
             )
-            rows = db.execute("SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", roadmap_id, session["user_id"])
-            if not rows:
+            rows_map = db.execute("SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", roadmap_id, session["user_id"])
+            if not rows_map:
                 return render_template("error.html", message="roadmap not found")
             else:
-                roadmap = rows[0]
-                return render_template("customize.html", username=rows[0]["username"], logged_in=True, roadmap=roadmap)
+                roadmap = rows_map[0]
+                return render_template("customize.html", username=rows_user[0]["username"], logged_in=True, roadmap=roadmap)
     elif request.method == "POST":
         if session.get("user_id") is None:
             return render_template("error.html", message="must be logged in first")
         else:
             name = request.form.get("name")
-            color = request.form.get("color")
-            if color not in ["black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue", "teal", "aqua"]:
-                return render_template("error.html", message="invalid color")
-            else:
-                roadmap_id = request.args.get('id')
-                db.execute("UPDATE roadmaps SET name = ?, color = ? WHERE id = ? AND user_id = ?", name, color, roadmap_id, session["user_id"])
-                return redirect(f"/view?id={roadmap_id}")
+            roadmap_id = request.args.get('id')
+            db.execute("UPDATE roadmaps SET name = ? WHERE id = ? AND user_id = ?", name, roadmap_id, session["user_id"])
+            return redirect(f"/view?id={roadmap_id}")
         
 @app.route("/delete")
 def delete():
     """Deletes chosen roadmap"""
     if session.get("user_id") is None:
         return render_template("error.html", message="must be logged in first")
+    roadmap_id = request.args.get('id')
+    db.execute("DELETE FROM nodes WHERE map_id = ?", roadmap_id)
+    db.execute("DELETE FROM roadmaps WHERE id = ? AND user_id = ?", roadmap_id, session["user_id"])
+    return redirect("/")
+    
+@app.route("/delete_node")
+def delete_node():
+    """Deletes chosen node"""
+    if session.get("user_id") is None:
+        return render_template("error.html", message="must be logged in first")
+    
+    node_id = request.args.get('id')
+    if not node_id:
+        return render_template("error.html", message="missing node ID")
+    nodes = db.execute(
+        "SELECT nodes.*, roadmaps.id AS roadmap_id FROM nodes JOIN roadmaps ON nodes.map_id = roadmaps.id WHERE nodes.id = ? AND roadmaps.user_id = ?",
+        node_id, session["user_id"]
+    )
+    if not nodes:
+        return render_template("error.html", message="node not found or unauthorized")
     else:
-        db.execute("DELETE FROM roadmaps WHERE id = ? AND user_id = ?", request.args.get('id'), session["user_id"])
-        return redirect("/")
+        if (nodes[0]["previous"] is None):
+            # Make the node labeled as next the new first one.
+            db.execute("UPDATE nodes SET previous = ? WHERE id = ?", None, nodes[0]["next"])
+        elif (nodes[0]["next"] is None):
+            db.execute("UPDATE nodes SET next = ? WHERE id = ?", None, nodes[0]["previous"])
+        else:
+            db.execute("UPDATE nodes SET next = ? WHERE id = ?", nodes[0]["next"], nodes[0]["previous"])
+            db.execute("UPDATE nodes SET previous = ? WHERE id = ?", nodes[0]["previous"], nodes[0]["next"])
+        roadmap_id = nodes[0]["roadmap_id"]
+        db.execute("DELETE FROM nodes WHERE id = ?", node_id)
+        return redirect(f"/view?id={roadmap_id}")
