@@ -93,6 +93,9 @@ def register():
         password = request.form.get("password")
         confirmation = request.form.get("confirmation")
 
+        if not username or not password:
+            return render_template("error.html", message="username or password empty")
+
         try:
             if (password == confirmation):
                 hashed = generate_password_hash(password)
@@ -114,6 +117,7 @@ def register():
                     "SELECT * FROM users WHERE id = ?", session["user_id"]
                 )
                 return render_template("error.html", message="username already exists", username=rows[0]["username"], logged_in=True)
+
             
 @app.route("/create")
 def create():
@@ -124,6 +128,7 @@ def create():
         db.execute("INSERT INTO roadmaps (user_id) VALUES (?)", session["user_id"])
         return redirect("/")
 
+
 @app.route("/create_node")
 def create_node():
     """Creates an unnamed and autoconnected node"""
@@ -133,26 +138,24 @@ def create_node():
     roadmap_id = request.args.get('id')
     if not roadmap_id:
         return render_template("error.html", message="missing roadmap ID")
-    
-    last_node = db.execute(
-        "SELECT id FROM nodes WHERE map_id = ? AND next IS NULL", 
-        roadmap_id
+    if not db.execute("SELECT * FROM users WHERE id = ?", roadmap_id):
+        return render_template("error.html", message="wrong user")
+    recent_row = db.execute("SELECT * FROM nodes WHERE map_id = ? ORDER BY created DESC LIMIT 1;")
+    if not recent_row:
+        db.execute(
+            "INSERT INTO nodes (map_id, next, previous, title, link, x, y) VALUES (?, NULL, NULL, NULL, NULL, ?, ?)",
+            roadmap_id, 0, 0
+        )
+        return redirect(f"/view?id={roadmap_id}")
+    most_recent = recent_row[0]
+    most_recent_y = most_recent["y"]
+    most_recent_x = most_recent["x"]
+    x = 2 if most_recent_x == 2 else most_recent_x + 1
+    y = most_recent_y + 1
+    db.execute(
+        "INSERT INTO nodes (map_id, next, previous, title, link, x, y) VALUES (?, NULL, NULL, NULL, NULL, ?, ?)",
+        roadmap_id, x, y
     )
-    if not last_node:
-        db.execute(
-            "INSERT INTO nodes (map_id, next, previous, title, link) VALUES (?, NULL, NULL, ?, ?)",
-            roadmap_id, None, None
-        )
-    else:
-        last_node_id = last_node[0]["id"]
-        new_node_id = db.execute(
-            "INSERT INTO nodes (map_id, next, previous, title, link) VALUES (?, NULL, ?, ?, ?)",
-            roadmap_id, last_node_id, None, None
-        )
-        db.execute(
-            "UPDATE nodes SET next = ? WHERE id = ?",
-            new_node_id, last_node_id
-        )
     return redirect(f"/view?id={roadmap_id}")
 
 
@@ -172,27 +175,10 @@ def view():
         return render_template("error.html", message="roadmap not found")
     roadmap = roadmaps[0]
     user = db.execute("SELECT username FROM users WHERE id = ?", session["user_id"])[0]
-    all_nodes = db.execute("SELECT * FROM nodes WHERE map_id = ?", roadmap_id)
-    nodes_by_id = {}
-    for node in all_nodes:
-        nodes_by_id[node["id"]] = node
+    nodes = db.execute("SELECT * FROM nodes WHERE map_id = ?", roadmap_id)
+    connections = db.execute("SELECT * FROM connections WHERE map_id = ?", roadmap_id)
+    return render_template("roadmap_view.html", roadmap_name=roadmap["name"], username=user["username"], logged_in=True, roadmap=roadmap,nodes=nodes, connections=connections)
 
-    current_node = None
-    for node in all_nodes:
-        if node["previous"] is None:
-            current_node = node
-            break
-
-    ordered_nodes = []
-    while current_node is not None:
-        ordered_nodes.append(current_node)
-        next_id = current_node["next"]
-        if next_id is not None and next_id in nodes_by_id:
-            current_node = nodes_by_id[next_id]
-        else:
-            current_node = None
-
-    return render_template("roadmap_view.html", roadmap_name=roadmap["name"], username=user["username"], logged_in=True, roadmap=roadmap,nodes=ordered_nodes)
 
 @app.route("/customize", methods=["GET", "POST"])
 def customize():
@@ -219,6 +205,7 @@ def customize():
             roadmap_id = request.args.get('id')
             db.execute("UPDATE roadmaps SET name = ? WHERE id = ? AND user_id = ?", name, roadmap_id, session["user_id"])
             return redirect(f"/view?id={roadmap_id}")
+
 
 @app.route("/customize_node", methods=["GET", "POST"])
 def customize_node():
@@ -261,8 +248,11 @@ def customize_node():
                 node_id, session["user_id"]
             )
             roadmap_id = nodes[0]["map_id"]
+            if not nodes:
+                return render_template("error.html", message="node not found or unauthorized")
             db.execute("UPDATE nodes SET title = ?, link = ? WHERE id = ? AND map_id = ?", title, link, node_id, roadmap_id)
             return redirect(f"/view?id={roadmap_id}")
+
 
 @app.route("/complete")
 def complete():
@@ -278,8 +268,11 @@ def complete():
                 node_id, session["user_id"]
             )
             roadmap_id = nodes[0]["map_id"]
+            if not nodes:
+                return render_template("error.html", message="node not found or unauthorized")
             db.execute("UPDATE nodes SET completed = ? WHERE id = ?", 1, node_id)
             return redirect(f"/view?id={roadmap_id}")
+
 
 @app.route("/uncomplete")
 def uncomplete():
@@ -295,8 +288,11 @@ def uncomplete():
                 node_id, session["user_id"]
             )
             roadmap_id = nodes[0]["map_id"]
+            if not nodes:
+                return render_template("error.html", message="node not found or unauthorized")
             db.execute("UPDATE nodes SET completed = ? WHERE id = ?", 0, node_id)
             return redirect(f"/view?id={roadmap_id}")
+
 
 @app.route("/delete")
 def delete():
@@ -304,9 +300,12 @@ def delete():
     if session.get("user_id") is None:
         return render_template("error.html", message="must be logged in first")
     roadmap_id = request.args.get('id')
+    if not db.execute("SELECT * FROM users WHERE id = ?", roadmap_id):
+        return render_template("error.html", message="wrong user")
     db.execute("DELETE FROM nodes WHERE map_id = ?", roadmap_id)
     db.execute("DELETE FROM roadmaps WHERE id = ? AND user_id = ?", roadmap_id, session["user_id"])
     return redirect("/")
+
     
 @app.route("/delete_node")
 def delete_node():
@@ -324,14 +323,6 @@ def delete_node():
     if not nodes:
         return render_template("error.html", message="node not found or unauthorized")
     else:
-        if (nodes[0]["previous"] is None):
-            # Make the node labeled as next the new first one.
-            db.execute("UPDATE nodes SET previous = ? WHERE id = ?", None, nodes[0]["next"])
-        elif (nodes[0]["next"] is None):
-            db.execute("UPDATE nodes SET next = ? WHERE id = ?", None, nodes[0]["previous"])
-        else:
-            db.execute("UPDATE nodes SET next = ? WHERE id = ?", nodes[0]["next"], nodes[0]["previous"])
-            db.execute("UPDATE nodes SET previous = ? WHERE id = ?", nodes[0]["previous"], nodes[0]["next"])
         roadmap_id = nodes[0]["map_id"]
         db.execute("DELETE FROM nodes WHERE id = ?", node_id)
         return redirect(f"/view?id={roadmap_id}")
