@@ -22,16 +22,89 @@
                 </div>
             </div>
             <div class="item">
-                <div style="border-width:1px;border-color:rgb(128, 116, 97);border-style:solid;padding:3px;">
+                <div style="border-width:1px;border-color:rgb(128, 116, 97);border-style:solid;padding:3px;font-size: 32px;">
                     <b>Navigation</b>
                 </div>
                 <ul>
-                    <li style="width: 160px;"><a href="/register">Register</a></li>
-                    <li style="width: 160px;"><a href="/login">Login</a></li>
-                    <li style="width: 160px;"><a href="/about">About</a></li>
+                    <li style="width: 300px;"><a href="/register">Register</a></li>
+                    <li style="width: 300px;"><a href="/login">Login</a></li>
+                    <li style="width: 300px;"><a href="/about">About</a></li>
+                    {% if logged_in %}
+                        <li><a href="/create" style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; color: black; text-decoration: none; font-size: 24px; font-weight: bold; line-height: 1;">
+                            +
+                            </a>
+                        </li>
+                    {% endif %}
+                    <div style="margin-top: 30px; width: 294px; border: 1px solid rgb(128, 116, 97); padding: 10px; background-color: rgba(255, 255, 255, 0.3); font-size: 13px;">
+                        <div style="font-size: 10px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 5px;">
+                            Tip of the Day
+                        </div>
+                        <strong>Stuck on a fork?</strong>
+                        <p style="margin: 5px 0 0 0; color: #333;">
+                            Click the &#9881; icon on any node and select <em>Make Optional</em> so alternative paths don't block your 100% completion!
+                        </p>
+                    </div>
+                    <script>
+                        const tips = [
+                            {
+                                title: "Stuck on a fork?",
+                                text: "Click the &#9881; icon on any node and select <em>Make Optional</em> so alternative paths don't block your 100% completion!"
+                            },
+                            {
+                                title: "Reorganize your grid",
+                                text: "You can move any node to a different row or column by using the <em>Move</em> option inside its settings menu."
+                            },
+                            {
+                                title: "Attach external resources",
+                                text: "Add web links to your roadmap nodes for instant access to documentation, tutorials, or notes."
+                            },
+                            {
+                                title: "Quickly find Node IDs",
+                                text: "Hover your mouse over any node card to reveal its ID number in the top-right corner for easy connecting."
+                            },
+                            {
+                                title: "Unlock celebration",
+                                text: "Check off all your required roadmap nodes to trigger a surprise celebratory confetti effect!"
+                            }
+                        ];
+
+                        let currentTipIndex = 0;
+
+                        function rotateTip() {
+                            currentTipIndex = (currentTipIndex + 1) % tips.length;
+                            const tip = tips[currentTipIndex];
+                            document.getElementById("tip-title").innerHTML = tip.title;
+                            document.getElementById("tip-text").innerHTML = tip.text;
+                        }
+
+                        setInterval(rotateTip, 8000);
+                    </script>
+                    {% if logged_in %}
+                        <div style="margin-top: 30px; width: 284px; border: 1px solid rgb(128, 116, 97); padding: 12px; background-color: rgba(255, 255, 255, 0.4); font-size: 13px;">
+                            <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; color: #555; letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px solid rgb(128, 116, 97); padding-bottom: 4px;">
+                                Your Stats
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>Roadmaps created:</span>
+                                <strong>{{ stat_roadmaps }}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>Total nodes:</span>
+                                <strong>{{ stat_nodes }}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Nodes completed:</span>
+                                {% if stat_completed != 0 %}
+                                    <strong style="color: #28a745;">{{ stat_completed }}</strong>
+                                {% else %}
+                                    <strong style="color: #4b6849;">{{ stat_completed }}</strong>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
                 </ul>
             </div>
-            <div class="item">{% block body %}{% endblock %}</div>
+            <div class="item" style="position: relative;">{% block body %}{% endblock %}</div>
         </div>
     </body>
 </html>
