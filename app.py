@@ -18,6 +18,7 @@ db = SQL("sqlite:///roadmap.db")
 
 
 def login_required(f):
+    """Requires login for a page"""
     @wraps(f)
     def wrapped(*args, **kwargs):
         if session.get("user_id") is None:
@@ -27,6 +28,7 @@ def login_required(f):
 
 
 def get_username():
+    """Gets the current user's username"""
     rows = db.execute(
         "SELECT * FROM users WHERE id = ?", session["user_id"]
     )
@@ -34,18 +36,21 @@ def get_username():
 
 
 def render_error(message):
+    """Renders an error message"""
     if session.get("user_id") is None:
         return render_template("error.html", message=message)
     return render_template("error.html", message=message, username=get_username(), logged_in=True)
 
 
 def get_owned_roadmap(roadmap_id):
+    """Gets the indicated roadmap using the user and map ids"""
     return db.execute(
         "SELECT * FROM roadmaps WHERE id = ? AND user_id = ?", roadmap_id, session["user_id"]
     )
 
 
 def get_owned_node(node_id):
+    """Gets the indicated node using the user, map, and node ids"""
     return db.execute(
         "SELECT nodes.*, roadmaps.id AS roadmap_id FROM nodes JOIN roadmaps ON nodes.map_id = roadmaps.id WHERE nodes.id = ? AND roadmaps.user_id = ?",
         node_id, session["user_id"]
@@ -53,29 +58,33 @@ def get_owned_node(node_id):
 
 
 def insert_node(roadmap_id, x, y):
+    """Creates a new blank node"""
     db.execute(
-        "INSERT INTO nodes (map_id, next, previous, title, link, x, y) VALUES (?, NULL, NULL, NULL, NULL, ?, ?)",
+        "INSERT INTO nodes (map_id, title, link, x, y) VALUES (?, NULL, NULL, ?, ?)",
         roadmap_id, x, y
     )
 
 
 def redirect_to_roadmap(roadmap_id):
+    """Redirects to roadmap"""
     return redirect(f"/view?id={roadmap_id}")
 
 
 def set_node_completed(completed):
+    """Sets a node either completed or uncompleted depending on the argument"""
     node_id = request.args.get('id')
     if not node_id:
         return render_error("missing node ID")
     nodes = get_owned_node(node_id)
-    roadmap_id = nodes[0]["map_id"]
     if not nodes:
         return render_error("node not found or unauthorized")
+    roadmap_id = nodes[0]["map_id"]
     db.execute("UPDATE nodes SET completed = ? WHERE id = ?", completed, node_id)
     return redirect_to_roadmap(roadmap_id)
 
 
 def get_connection_nodes():
+    """Validates nodes for connection"""
     try:
         connecter_id = int(request.form.get("connecter_id"))
         connectee_id = int(request.form.get("connectee_id"))
@@ -185,15 +194,19 @@ def create_node():
         return render_error("missing roadmap ID")
     if not get_owned_roadmap(roadmap_id):
         return render_error("wrong user")
-    recent_row = db.execute("SELECT * FROM nodes WHERE map_id = ? ORDER BY created DESC LIMIT 1;")
+    recent_row = db.execute("SELECT * FROM nodes WHERE map_id = ? ORDER BY created DESC, id DESC LIMIT 1;", roadmap_id)
     if not recent_row:
         insert_node(roadmap_id, 0, 0)
         return redirect_to_roadmap(roadmap_id)
     most_recent = recent_row[0]
     most_recent_y = most_recent["y"]
     most_recent_x = most_recent["x"]
-    x = 2 if most_recent_x == 2 else most_recent_x + 1
-    y = most_recent_y + 1
+    if most_recent_x == 2:
+        x = 0
+        y = most_recent_y + 1
+    else:
+        x = most_recent_x + 1
+        y = most_recent_y
     insert_node(roadmap_id, x, y)
     return redirect_to_roadmap(roadmap_id)
 
@@ -237,33 +250,29 @@ def customize():
 @login_required
 def customize_node():
     """Changes the info/metadata on a node"""
+    node_id = request.args.get('id')
+    if not node_id:
+        return render_error("missing node ID")
+    nodes = get_owned_node(node_id)
+    if not nodes:
+        return render_error("node not found or unauthorized")
+    node = nodes[0]
+    roadmap_id = node["map_id"]
     if request.method == "GET":
-        node_id = request.args.get('id')
-        if not node_id:
-            return render_error("missing node ID")
-        nodes = get_owned_node(node_id)
-        roadmap_id = nodes[0]["map_id"]
-        node = nodes[0]
         return render_template("customize_node.html", username=get_username(), logged_in=True, node=node)
-    elif request.method == "POST":
-        title = request.form.get("title")
-        link = (request.form.get("link") or "").strip()
-        if not link:
-            return render_error("missing link")
-        if not link.startswith(("http://", "https://")):
-            link = "https://" + link
-        try:
-            if requests.get(link, timeout=5).status_code != 200:
-                return render_error("invalid link")
-        except requests.exceptions.RequestException as e:
+    title = request.form.get("title")
+    link = (request.form.get("link") or "").strip()
+    if not link:
+        return render_error("missing link")
+    if not link.startswith(("http://", "https://")):
+        link = "https://" + link
+    try:
+        if requests.get(link, timeout=5).status_code != 200:
             return render_error("invalid link")
-        node_id = request.args.get('id')
-        nodes = get_owned_node(node_id)
-        roadmap_id = nodes[0]["map_id"]
-        if not nodes:
-            return render_error("node not found or unauthorized")
-        db.execute("UPDATE nodes SET title = ?, link = ? WHERE id = ? AND map_id = ?", title, link, node_id, roadmap_id)
-        return redirect_to_roadmap(roadmap_id)
+    except requests.exceptions.RequestException:
+        return render_error("invalid link")
+    db.execute("UPDATE nodes SET title = ?, link = ? WHERE id = ? AND map_id = ?", title, link, node_id, roadmap_id)
+    return redirect_to_roadmap(roadmap_id)
 
 
 @app.route("/complete")
@@ -292,9 +301,11 @@ def delete():
     return redirect("/")
 
 
-@app.route("/connect", methods=["POST"])
+@app.route("/connect", methods=["GET", "POST"])
 @login_required
 def connect():
+    if request.method == "GET":
+        return render_template("connect.html")
     connecter, connectee, err = get_connection_nodes()
     if err:
         return err
@@ -311,9 +322,11 @@ def connect():
     return redirect_to_roadmap(roadmap_id)
     
 
-@app.route("/unconnect", methods=["POST"])
+@app.route("/unconnect", methods=["GET", "POST"])
 @login_required
 def unconnect():
+    if request.method == "GET":
+        return render_template("unconnect.html")
     connecter, connectee, err = get_connection_nodes()
     if err:
         return err
@@ -339,3 +352,32 @@ def delete_node():
         roadmap_id = nodes[0]["map_id"]
         db.execute("DELETE FROM nodes WHERE id = ?", node_id)
         return redirect_to_roadmap(roadmap_id)
+
+
+@app.route("/move_node", methods=["GET", "POST"])
+@login_required
+def move_node():
+    if request.method == "GET":
+        node_id = request.args.get("id")
+        if not node_id or not get_owned_node(node_id):
+            return render_error("node not found or unauthorized")
+        return render_template("move.html", id=node_id)
+    node_id = request.form.get("id")
+    node = get_owned_node(node_id)
+    if not node:
+        return render_error("node not found or unauthorized")
+    roadmap_id = node[0]["map_id"]
+    try:
+        new_x = int(request.form.get("x")) - 1
+        new_y = int(request.form.get("y")) - 1
+    except (TypeError, ValueError):
+        return render_error("row and column must be numbers")
+    if not (0 <= new_x <= 2) or new_y < 0:
+        return render_error("column must be 1-3 and row must be 1 or higher")
+    if db.execute(
+        "SELECT 1 FROM nodes WHERE map_id = ? AND x = ? AND y = ? AND id != ?",
+        roadmap_id, new_x, new_y, node_id
+    ):
+        return render_error("another node is already in that spot")
+    db.execute("UPDATE nodes SET x = ?, y = ? WHERE id = ?", new_x, new_y, node_id)
+    return redirect_to_roadmap(roadmap_id)

@@ -5,34 +5,50 @@
 {% endblock %}
 
 {% block body %}
+    <style>
+        .node-id { opacity: 0; }
+        .node-card:hover .node-id { opacity: 1; }
+        details[open] > div { position: absolute; background: white; border: 1px solid #ccc; z-index: 5; }
+        .node-card summary { list-style: none; cursor: pointer; }
+        .node-card summary::-webkit-details-marker { display: none; }
+    </style>
     <div style="position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 10px;">
         <h1 style="margin: 0; font-size: 32px;">
             {{ roadmap.name | default('Untitled', true) }}
         </h1>
-        <div>
-            <a href="{{ url_for('customize', id=roadmap.id) }}" style="color: black; padding: 5px 10px; text-decoration: none;">&#9998;</a>
-            <a href="{{ url_for('create_node', id=roadmap.id) }}" style="color: black; padding: 5px 10px; text-decoration: none; font-weight: bold;">+</a>
-        </div>
+        <details>
+            <summary>Options</summary>
+            <div>
+                <a href="{{ url_for('customize', id=roadmap.id) }}">Rename</a><br>
+                <a href="{{ url_for('create_node', id=roadmap.id) }}">Add node</a><br>
+                <a href="{{ url_for('connect', id=roadmap.id) }}">Connect</a><br>
+                <a href="{{ url_for('unconnect', id=roadmap.id) }}">Unconnect</a>
+            </div>
+        </details>
     </div>
 
-    <div style="display: flex; flex-direction: column; align-items: center; padding: 80px 20px; overflow-y: auto;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 80px; gap: 20px; padding: 20px;">
         {% for node in nodes %}
-            <div style="background-color: {{ '#f0f0f0' if node.completed == 1 else 'white' }}; border: 1px solid #ccc; border-radius: 6px; padding: 12px; min-width: 150px; text-align: center; {% if node.completed == 1 %}opacity: 0.6;{% endif %}">
-                    <h3 style="margin: 0 0 5px 0; font-size: 16px; {% if node.completed == 1 %}text-decoration: line-through; color: #777;{% endif %}">{{ node.title | default('Untitled', true) }}</h3>
+            <div class="node-card" style="position: relative; grid-column: {{ node.x + 1 }}; grid-row: {{ node.y + 1 }}; background-color: {{ '#f0f0f0' if node.completed == 1 else 'white' }}; border: 1px solid #ccc; border-radius: 6px; padding: 12px; min-width: 150px; text-align: center; {% if node.completed == 1 %}opacity: 0.6;{% endif %}">
+                <span class="node-id" style="position: absolute; top: 2px; right: 5px; font-size: 10px; color: #999;">{{ node.id }}</span>
+                <details style="position: absolute; top: 2px; left: 4px; text-align: left;">
+                    <summary>&#9881;</summary>
+                    <div>
+                        <a href="{{ url_for('customize_node', id=node.id) }}">Edit</a><br>
+                        <a href="{{ url_for('move_node', id=node.id) }}">Move</a><br>
+                        {% if node.completed == 0 %}
+                            <a href="{{ url_for('complete', id=node.id) }}">Complete</a><br>
+                        {% elif node.completed == 1 %}
+                            <a href="{{ url_for('uncomplete', id=node.id) }}">Uncomplete</a><br>
+                        {% endif %}
+                        <a href="{{ url_for('delete_node', id=node.id) }}">Delete</a>
+                    </div>
+                </details>
+                <h3 style="margin: 0 0 5px 0; font-size: 16px; {% if node.completed == 1 %}text-decoration: line-through; color: #777;{% endif %}">{{ node.title | default('Untitled', true) }}</h3>
                 {% if node.link %}
-                    <a href="{{ node.link }}" target="_blank" style="text-decoration: none; font-size: 20px; color: blue;">&#128279;</a>
-                {% endif %}
-                <a href="{{ url_for('delete_node', id=node.id) }}" style="text-decoration: none; color: inherit;">&#128465;</a>
-                <a href="{{ url_for('customize_node', id=node.id) }}" style="text-decoration: none; color: inherit;">&#9998;</a>
-                {% if node.completed == 0 %}
-                <a href="{{ url_for('complete', id=node.id) }}" style="text-decoration: none; color: inherit;">&#10003;</a>
-                {% elif node.completed == 1 %}
-                <a href="{{ url_for('uncomplete', id=node.id) }}" style="text-decoration: none; color: inherit;">&#10005;</a>
+                    <a href="{{ node.link }}" target="_blank" rel="noopener" style="font-size: 12px; color: #777;">Open link &#8599;</a>
                 {% endif %}
             </div>
-            {% if not loop.last %}
-                <div style="width: 2px; height: 30px; background-color: black; flex-shrink: 0;"></div>
-            {% endif %}
         {% else %}
             <p style="color: #777;">No nodes yet. Click + to add one!</p>
         {% endfor %}
