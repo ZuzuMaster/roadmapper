@@ -1,4 +1,5 @@
 from functools import wraps
+from urllib.parse import urlparse
 
 from flask import Flask, redirect, render_template, request, session, flash
 from flask_session import Session
@@ -15,6 +16,38 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 db = SQL("sqlite:///roadmap.db")
+
+
+@app.context_processor
+def inject_user_stats():
+    """Globally injects user session, stats, and roadmaps into all templates"""
+    if session.get("user_id") is None:
+        return dict(logged_in=False)
+    
+    user_id = session["user_id"]
+    user_rows = db.execute("SELECT username FROM users WHERE id = ?", user_id)
+    username = user_rows[0]["username"] if user_rows else ""
+    
+    roadmaps = db.execute("SELECT * FROM roadmaps WHERE user_id = ?", user_id)
+    total_roadmaps = len(roadmaps)
+    
+    total_nodes = 0
+    completed_nodes = 0
+    if roadmaps:
+        roadmap_ids = [r["id"] for r in roadmaps]
+        placeholders = ",".join(["?"] * len(roadmap_ids))
+        nodes = db.execute(f"SELECT completed FROM nodes WHERE map_id IN ({placeholders})", *roadmap_ids)
+        total_nodes = len(nodes)
+        completed_nodes = sum(1 for n in nodes if n["completed"] == 1)
+        
+    return dict(
+        logged_in=True,
+        username=username,
+        roadmaps=roadmaps,
+        stat_roadmaps=total_roadmaps,
+        stat_nodes=total_nodes,
+        stat_completed=completed_nodes
+    )
 
 
 def login_required(f):
@@ -80,6 +113,18 @@ def set_node_completed(completed):
         return render_error("node not found or unauthorized")
     roadmap_id = nodes[0]["map_id"]
     db.execute("UPDATE nodes SET completed = ? WHERE id = ?", completed, node_id)
+    return redirect_to_roadmap(roadmap_id)
+
+def set_node_optional(optional):
+    """Sets a node either optional or unoptional depending on the argument"""
+    node_id = request.args.get('id')
+    if not node_id:
+        return render_error("missing node ID")
+    nodes = get_owned_node(node_id)
+    if not nodes:
+        return render_error("node not found or unauthorized")
+    roadmap_id = nodes[0]["map_id"]
+    db.execute("UPDATE nodes SET optional = ? WHERE id = ?", optional, node_id)
     return redirect_to_roadmap(roadmap_id)
 
 
@@ -262,17 +307,17 @@ def customize_node():
         return render_template("customize_node.html", username=get_username(), logged_in=True, node=node)
     title = request.form.get("title")
     link = (request.form.get("link") or "").strip()
+    if link:
+        if not link.startswith(("http://", "https://")):
+            link = "https://" + link
+        parsed = urlparse(link)
+        if not parsed.netloc:
+            return render_error("invalid link format")
+        db.execute("UPDATE nodes SET title = ?, link = ? WHERE id = ? AND map_id = ?", title, link, node_id, roadmap_id)
+        return redirect_to_roadmap(roadmap_id)
     if not link:
-        return render_error("missing link")
-    if not link.startswith(("http://", "https://")):
-        link = "https://" + link
-    try:
-        if requests.get(link, timeout=5).status_code != 200:
-            return render_error("invalid link")
-    except requests.exceptions.RequestException:
-        return render_error("invalid link")
-    db.execute("UPDATE nodes SET title = ?, link = ? WHERE id = ? AND map_id = ?", title, link, node_id, roadmap_id)
-    return redirect_to_roadmap(roadmap_id)
+        db.execute("UPDATE nodes SET title = ? WHERE id = ? AND map_id = ?", title, node_id, roadmap_id)
+        return redirect_to_roadmap(roadmap_id)
 
 
 @app.route("/complete")
@@ -287,6 +332,20 @@ def complete():
 def uncomplete():
     """Completes a node"""
     return set_node_completed(0)
+
+
+@app.route("/set_optional")
+@login_required
+def set_optional():
+    """Sets a node as optional"""
+    return set_node_optional(1)
+
+
+@app.route("/set_unoptional")
+@login_required
+def set_unoptional():
+    """Sets a node as mandatory/unoptional"""
+    return set_node_optional(0)
 
 
 @app.route("/delete")

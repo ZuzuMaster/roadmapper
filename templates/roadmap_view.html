@@ -5,6 +5,9 @@
 {% endblock %}
 
 {% block body %}
+    <!-- Load canvas-confetti library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
     <style>
         .node-id { opacity: 0; }
         .node-card:hover .node-id { opacity: 1; }
@@ -12,10 +15,33 @@
         .node-card summary { list-style: none; cursor: pointer; }
         .node-card summary::-webkit-details-marker { display: none; }
     </style>
-    <div style="position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 10px;">
-        <h1 style="margin: 0; font-size: 32px;">
-            {{ roadmap.name | default('Untitled', true) }}
-        </h1>
+
+    <div style="position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px;">
+        <div>
+            <h1 style="margin: 0; font-size: 28px;">
+                {{ roadmap.name | default('Untitled', true) }}
+            </h1>
+            
+            {% set total_nodes = namespace(value=0) %}
+            {% set completed_count = namespace(value=0) %}
+            {% for node in nodes %}
+                {% if node.optional == 0 or node.completed == 1 %}
+                    {% set total_nodes.value = total_nodes.value + 1 %}
+                    {% if node.completed == 1 %}
+                        {% set completed_count.value = completed_count.value + 1 %}
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+            {% set percent = (completed_count.value / total_nodes.value * 100) | round | int if total_nodes.value > 0 else 0 %}
+
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                <div style="width: 150px; background-color: #e0e0e0; height: 8px; overflow: hidden;">
+                    <div style="width: {{ percent }}%; background-color: #616061; height: 100%; transition: width 0.3s ease;"></div>
+                </div>
+                <span style="font-size: 12px; color: #666;">{{ completed_count.value }} / {{ total_nodes.value }} completed ({{ percent }}%)</span>
+            </div>
+        </div>
+
         <details>
             <summary>Options</summary>
             <div>
@@ -27,24 +53,38 @@
         </details>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 80px; gap: 20px; padding: 20px;">
+    <div id="grid" style="position: relative; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 80px; gap: 20px; padding: 20px; margin-top: 60px;">
+        <svg id="lines" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></svg>
+
         {% for node in nodes %}
-            <div class="node-card" style="position: relative; grid-column: {{ node.x + 1 }}; grid-row: {{ node.y + 1 }}; background-color: {{ '#f0f0f0' if node.completed == 1 else 'white' }}; border: 1px solid #ccc; border-radius: 6px; padding: 12px; min-width: 150px; text-align: center; {% if node.completed == 1 %}opacity: 0.6;{% endif %}">
+            <div id="node-{{ node.id }}" class="node-card" style="position: relative; grid-column: {{ node.x + 1 }}; grid-row: {{ node.y + 1 }}; background-color: {{ '#f0f0f0' if node.completed == 1 else 'white' }}; border: 1px solid #ccc; border-radius: 6px; padding: 25px; min-width: 150px; text-align: center; {% if node.completed == 1 %}opacity: 0.6;{% endif %}">
                 <span class="node-id" style="position: absolute; top: 2px; right: 5px; font-size: 10px; color: #999;">{{ node.id }}</span>
                 <details style="position: absolute; top: 2px; left: 4px; text-align: left;">
                     <summary>&#9881;</summary>
                     <div>
                         <a href="{{ url_for('customize_node', id=node.id) }}">Edit</a><br>
                         <a href="{{ url_for('move_node', id=node.id) }}">Move</a><br>
-                        {% if node.completed == 0 %}
-                            <a href="{{ url_for('complete', id=node.id) }}">Complete</a><br>
-                        {% elif node.completed == 1 %}
-                            <a href="{{ url_for('uncomplete', id=node.id) }}">Uncomplete</a><br>
+                        {% if node.optional == 0 %}
+                            <a href="{{ url_for('set_optional', id=node.id) }}">Opt</a><br>
+                        {% else %}
+                            <a href="{{ url_for('set_unoptional', id=node.id) }}">UnOpt</a><br>
                         {% endif %}
                         <a href="{{ url_for('delete_node', id=node.id) }}">Delete</a>
                     </div>
                 </details>
-                <h3 style="margin: 0 0 5px 0; font-size: 16px; {% if node.completed == 1 %}text-decoration: line-through; color: #777;{% endif %}">{{ node.title | default('Untitled', true) }}</h3>
+
+                {% if node.completed == 0 %}
+                    <a href="{{ url_for('complete', id=node.id) }}" title="Complete" style="position: absolute; bottom: 2px; right: 5px; text-decoration: none; color: #ccc; font-size: 14px;">&#10003;</a>
+                {% elif node.completed == 1 %}
+                    <a href="{{ url_for('uncomplete', id=node.id) }}" title="Uncomplete" style="position: absolute; bottom: 2px; right: 5px; text-decoration: none; color: #28a745; font-size: 14px;">&#10003;</a>
+                {% endif %}
+
+                <h3 style="margin: 0 0 5px 0; font-size: 16px; {% if node.completed == 1 %}text-decoration: line-through; color: #777;{% endif %}">
+                    {{ node.title | default('Untitled', true) }}
+                    {% if node.optional == 1 %}
+                        <span style="font-size: 10px; color: #888; font-weight: normal; border: 1px solid #ccc; padding: 1px 4px; border-radius: 3px; margin-left: 4px;">Optional</span>
+                    {% endif %}
+                </h3>
                 {% if node.link %}
                     <a href="{{ node.link }}" target="_blank" rel="noopener" style="font-size: 12px; color: #777;">Open link &#8599;</a>
                 {% endif %}
@@ -53,4 +93,42 @@
             <p style="color: #777;">No nodes yet. Click + to add one!</p>
         {% endfor %}
     </div>
+
+    <script>
+        const connections = {{ connections | tojson }};
+
+        function drawLines() {
+            const svg = document.getElementById("lines");
+            const grid = document.getElementById("grid").getBoundingClientRect();
+            svg.innerHTML = "";
+            for (const c of connections) {
+                const a = document.getElementById("node-" + c.connecter);
+                const b = document.getElementById("node-" + c.connectee);
+                if (!a || !b) continue;
+                const ra = a.getBoundingClientRect();
+                const rb = b.getBoundingClientRect();
+                svg.innerHTML += `<line
+                    x1="${ra.left + ra.width / 2 - grid.left}" y1="${ra.top + ra.height / 2 - grid.top}"
+                    x2="${rb.left + rb.width / 2 - grid.left}" y2="${rb.top + rb.height / 2 - grid.top}"
+                    stroke="black" stroke-width="2"/>`;
+            }
+        }
+
+        window.addEventListener("load", () => {
+            drawLines();
+
+            // Check if roadmap is fully complete (all required/completed nodes match)
+            const totalNodes = {{ total_nodes.value }};
+            const completedCount = {{ completed_count.value }};
+            if (totalNodes > 0 && totalNodes === completedCount) {
+                confetti({
+                    particleCount: 150,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+        });
+
+        window.addEventListener("resize", drawLines);
+    </script>
 {% endblock %}
